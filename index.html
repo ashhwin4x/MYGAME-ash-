@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>HORROR — ESCAPE</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{overflow:hidden;background:#000;color:#fff;font-family:'Courier New',monospace;user-select:none;touch-action:none;}
+
+/* PORTRAIT LOCK */
+#portrait-warn{display:none;position:fixed;inset:0;z-index:9999;background:#000;flex-direction:column;align-items:center;justify-content:center;}
+#portrait-warn .icon{font-size:3rem;animation:rotIcon 1.8s ease-in-out infinite;}
+#portrait-warn p{margin-top:1rem;color:#cc0000;letter-spacing:.2em;font-size:.8rem;}
+@keyframes rotIcon{0%{transform:rotate(0)}50%{transform:rotate(90deg)}100%{transform:rotate(0)}}
+@media screen and (orientation:portrait){
+  #portrait-warn{display:flex!important;}
+  #game-root{display:none!important;}
+}
+
+/* SCREENS */
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;background:#000;}
+.screen.hidden{display:none;}
+
+#screen-password{background:radial-gradient(ellipse at center,#0d0003,#000 70%);}
+#screen-password .skull{font-size:3rem;margin-bottom:.7rem;animation:float 3s ease-in-out infinite;}
+#screen-password h1{font-size:clamp(1.8rem,5vw,3rem);letter-spacing:.4em;color:#cc0000;text-shadow:0 0 30px #ff0000;margin-bottom:.3rem;}
+#screen-password .sub{color:#440000;font-size:.65rem;letter-spacing:.3em;margin-bottom:1.8rem;}
+#pass-input{background:transparent;border:none;border-bottom:1px solid #550000;color:#ff4444;font-family:inherit;font-size:1.1rem;text-align:center;padding:8px 16px;width:250px;outline:none;letter-spacing:.2em;caret-color:#ff2222;}
+#pass-input::placeholder{color:#2a0000;}
+#pass-btn{margin-top:1rem;padding:9px 36px;background:transparent;border:1px solid #440000;color:#880000;font-family:inherit;font-size:.8rem;cursor:pointer;letter-spacing:.25em;transition:all .2s;}
+#pass-btn:hover{background:#200000;border-color:#cc0000;color:#ff3333;}
+#pass-msg{margin-top:.8rem;font-size:.75rem;letter-spacing:.12em;min-height:1em;}
+
+#screen-dead{background:radial-gradient(ellipse at center,#1a0000,#000 70%);}
+#screen-dead h1{font-size:clamp(2.5rem,7vw,4.5rem);color:#ff0000;text-shadow:0 0 40px #ff0000;letter-spacing:.3em;animation:pulse 1.2s ease-in-out infinite;}
+#death-msg{margin:1rem 0 0;color:#555;font-size:.85rem;letter-spacing:.1em;}
+.screen-btn{margin-top:1.6rem;padding:10px 36px;background:transparent;border:1px solid currentColor;font-family:inherit;font-size:.85rem;cursor:pointer;letter-spacing:.2em;transition:all .2s;}
+.screen-btn.red{color:#ff3333;} .screen-btn.red:hover{background:#ff3333;color:#000;}
+.screen-btn.green{color:#00ff88;} .screen-btn.green:hover{background:#00ff88;color:#000;}
+
+#screen-win{background:radial-gradient(ellipse at center,#001a05,#000 70%);}
+#screen-win h1{font-size:clamp(1.8rem,5vw,3rem);color:#00ff88;text-shadow:0 0 30px #00ff88;letter-spacing:.3em;}
+#screen-win p{margin:1rem 0;color:#005522;font-size:.85rem;letter-spacing:.1em;}
+
+/* HUD */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10;display:none;}
+
+#hud-tl{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.6);padding:7px 10px;border-radius:4px;border-left:2px solid #440000;display:flex;flex-direction:column;gap:6px;}
+.hud-row{display:flex;align-items:center;gap:7px;}
+.hud-lbl{font-size:.55rem;color:#ff4422;letter-spacing:.15em;width:46px;}
+.bar-wrap{width:80px;height:4px;background:#1a0000;border-radius:2px;}
+.bar-fill{height:100%;border-radius:2px;transition:width .2s;}
+#hp-fill{background:linear-gradient(90deg,#aa1111,#ff3333);width:100%;}
+#stam-fill{background:linear-gradient(90deg,#1144aa,#3399ff);width:100%;}
+.hud-num{font-size:.75rem;color:#ff6644;letter-spacing:.06em;}
+
+#hud-tr{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);padding:7px 12px;border-radius:4px;border-right:2px solid #554400;text-align:right;}
+#keys-hud{font-size:.82rem;color:#886600;letter-spacing:.15em;}
+#keys-val{color:#ffcc00;font-size:.95rem;}
+
+/* Crosshair */
+#crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:18px;height:18px;pointer-events:none;}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:rgba(255,255,255,.65);border-radius:1px;}
+#crosshair::before{width:2px;height:18px;left:8px;top:0;}
+#crosshair::after{width:18px;height:2px;left:0;top:8px;}
+
+/* Minimap */
+#minimap{position:absolute;bottom:8px;right:8px;width:100px;height:100px;border-radius:50%;overflow:hidden;border:1px solid #330000;}
+
+/* OVERLAYS */
+#click-prompt{position:fixed;inset:0;display:none;z-index:50;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;gap:12px;background:rgba(0,0,0,.5);}
+#click-prompt .cp-icon{font-size:2rem;animation:float 2s ease-in-out infinite;}
+#click-prompt p{font-size:.78rem;color:#880000;letter-spacing:.3em;animation:pulse 2s infinite;}
+
+#toast{position:fixed;bottom:22%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.88);border:1px solid #330000;padding:6px 18px;font-size:.72rem;letter-spacing:.09em;color:#dd9966;display:none;z-index:30;border-radius:3px;transition:opacity .4s;white-space:nowrap;text-align:center;}
+#prompt-bar{position:fixed;bottom:28%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.88);border:1px solid rgba(255,255,255,.12);padding:5px 16px;font-size:.72rem;letter-spacing:.15em;display:none;z-index:25;border-radius:3px;text-align:center;}
+#heartbeat-icon{position:fixed;top:50%;right:12px;transform:translateY(-50%);display:none;z-index:20;font-size:1.2rem;filter:drop-shadow(0 0 8px #ff0000);animation:heartpulse .8s ease-in-out infinite;}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:6;}
+#jumpscare{position:fixed;inset:0;display:none;z-index:200;pointer-events:none;background:#000;}
+
+/* HIDE SCREEN */
+#hide-screen{position:fixed;inset:0;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:60;pointer-events:all;}
+#hide-screen .eye{font-size:2rem;margin-bottom:1rem;opacity:.35;animation:blink 4s infinite;}
+#hide-screen p{color:#1c1c1c;font-size:.75rem;letter-spacing:.25em;margin-bottom:.4rem;}
+#hide-screen .sub-txt{color:#111;font-size:.6rem;letter-spacing:.15em;margin-bottom:1.6rem;}
+#hide-screen button{padding:8px 24px;background:transparent;border:1px solid #222;color:#222;font-family:inherit;font-size:.7rem;cursor:pointer;letter-spacing:.15em;transition:all .25s;}
+#hide-screen button:hover{border-color:#555;color:#555;}
+
+/* ═══ MOBILE CONTROLS ═══ */
+#mobile-ui{position:fixed;bottom:0;left:0;width:100%;display:none;z-index:40;pointer-events:none;}
+#joystick-zone{position:fixed;bottom:0;left:0;width:200px;height:200px;pointer-events:all;}
+
+/* Right-side button panel */
+#mob-panel{
+  position:fixed;right:12px;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:10px;pointer-events:all;
+}
+.mob-btn{
+  width:64px;height:64px;border-radius:50%;
+  border:2px solid rgba(200,30,30,.6);background:rgba(5,0,0,.8);
+  color:#ee4444;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  cursor:pointer;transition:background .12s,transform .1s;
+  font-size:1.1rem;
+}
+.mob-btn:active,.mob-btn.pressed{background:rgba(150,0,0,.75);transform:scale(.93);}
+.mob-btn span{font-size:.42rem;color:#aa2222;margin-top:2px;letter-spacing:.04em;display:block;}
+
+/* Sprint toggle button (bottom-left of screen, above joystick) */
+#btn-sprint{
+  position:fixed;left:180px;bottom:50px;
+  width:52px;height:52px;border-radius:50%;
+  border:2px solid rgba(0,150,255,.5);background:rgba(0,0,20,.8);
+  color:#3399ff;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  pointer-events:all;-webkit-tap-highlight-color:transparent;
+  font-size:.9rem;transition:all .12s;z-index:41;
+}
+#btn-sprint.active{background:rgba(0,80,200,.6);border-color:rgba(0,200,255,.9);color:#00ccff;}
+#btn-sprint span{font-size:.4rem;color:#336688;display:block;margin-top:1px;}
+
+/* ANIMATIONS */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes heartpulse{0%,100%{transform:translateY(-50%) scale(1)}50%{transform:translateY(-50%) scale(1.38)}}
+@keyframes blink{0%,45%,55%,100%{opacity:.35}48%,52%{opacity:.04}}
+</style>
+</head>
+<body>
+
+<div id="portrait-warn"><div class="icon">📱</div><p>ROTATE TO LANDSCAPE</p></div>
+
+<div id="game-root">
+
+<!-- PASSWORD -->
+<div id="screen-password" class="screen">
+  <div class="skull">💀</div>
+  <h1>HORROR</h1>
+  <p class="sub">RESTRICTED ACCESS — ENTER CODE</p>
+  <input type="password" id="pass-input" placeholder="••••••••••" maxlength="20" autocomplete="off">
+  <button id="pass-btn" onclick="checkPass()">[ ENTER ]</button>
+  <p id="pass-msg"></p>
+</div>
+
+<!-- DEATH -->
+<div id="screen-dead" class="screen hidden">
+  <h1>YOU DIED</h1>
+  <p id="death-msg">The killer caught you.</p>
+  <button class="screen-btn red" onclick="location.reload()">[ TRY AGAIN ]</button>
+</div>
+
+<!-- WIN -->
+<div id="screen-win" class="screen hidden">
+  <h1>🔓 ESCAPED</h1>
+  <p>You collected all keys and escaped!</p>
+  <button class="screen-btn green" onclick="location.reload()">[ PLAY AGAIN ]</button>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-tl">
+    <div class="hud-row"><span class="hud-lbl">HEALTH</span><div class="bar-wrap"><div class="bar-fill" id="hp-fill"></div></div></div>
+    <div class="hud-row"><span class="hud-lbl">STAMINA</span><div class="bar-wrap"><div class="bar-fill" id="stam-fill"></div></div></div>
+    <div class="hud-row"><span class="hud-lbl">BULLETS</span><span style="font-size:.85rem">🔫</span><span class="hud-num" id="bullets-val">10</span></div>
+  </div>
+  <div id="hud-tr"><div id="keys-hud">🔑 <span id="keys-val">0</span><span style="color:#333">/5</span></div></div>
+  <div id="crosshair"></div>
+  <div id="minimap"><canvas id="minimap-canvas" width="100" height="100"></canvas></div>
+</div>
+
+<div id="click-prompt" onclick="lockPointer()">
+  <div class="cp-icon">🖱️</div>
+  <p>CLICK TO PLAY</p>
+</div>
+
+<div id="toast"></div>
+<div id="prompt-bar"></div>
+<div id="heartbeat-icon">♥</div>
+<div id="vignette"></div>
+<div id="jumpscare"></div>
+
+<!-- HIDE SCREEN -->
+<div id="hide-screen">
+  <div class="eye">👁</div>
+  <p>HIDING IN LOCKER</p>
+  <p class="sub-txt">Hold still... don't breathe.</p>
+  <button id="btn-exit-hide">[ COME OUT ]</button>
+</div>
+
+<!-- MOBILE UI -->
+<div id="mobile-ui">
+  <div id="joystick-zone"></div>
+  <!-- Sprint toggle -->
+  <div id="btn-sprint"><span style="font-size:.9rem">⚡</span><span>SPRINT</span></div>
+  <!-- Action buttons on right -->
+  <div id="mob-panel">
+    <div class="mob-btn" id="btn-shoot">🔫<span>SHOOT</span></div>
+    <div class="mob-btn" id="btn-collect">🔑<span>COLLECT</span></div>
+    <div class="mob-btn" id="btn-hide-mob">👁<span>HIDE</span></div>
+    <div class="mob-btn" id="btn-exit-door">🚪<span>EXIT</span></div>
+  </div>
+</div>
+
+</div><!-- #game-root -->
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/nipplejs@0.9.0/dist/nipplejs.min.js"></script>
+<script>
+/* ═══════════════════════════════════════
+   DETECT MOBILE
+═══════════════════════════════════════ */
+var IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
+/* ═══════════════════════════════════════
+   GAME STATE
+═══════════════════════════════════════ */
+var CORRECT_PASS = "ASHWIN5002";
+var TOTAL_KEYS   = 5;
+var BOUND        = 14.0;
+
+var scene, camera, renderer, flashlight;
+var killerGroup, lockerMesh, exitDoorMesh;
+var keyMeshes = [], keyLights = [];
+var collectedKeys = 0, bullets = 10, stamina = 100;
+var killerFrozen = false, freezeTimer = null;
+var killerBaseSpd = 2.6, killerSpd = 2.6;
+var hiding = false, isDead = false, hasWon = false, gameStarted = false;
+var pointerLocked = false;
+var yaw = 0, pitch = 0;
+var pressedKeys = {}, joyVec = {x:0,z:0};
+var sprintOn = false;   // mobile sprint toggle
+var lastTS = 0, footCD = 0, lastBeat = 0;
+var patrolPts = [], patrolIdx = 0;
+var audioCtx = null;
+var frameCount = 0;
+var MOUSE_SENS = 0.004;
+
+/* ═══════════════════════════════════════
+   PASSWORD
+═══════════════════════════════════════ */
+function checkPass(){
+  var v=document.getElementById('pass-input').value;
+  var msg=document.getElementById('pass-msg');
+  if(v===CORRECT_PASS){
+    msg.style.color='#00cc55'; msg.textContent='✓ ACCESS GRANTED';
+    document.getElementById('pass-btn').disabled=true;
+    setTimeout(startGame,900);
+  } else {
+    msg.style.color='#cc2222'; msg.textContent='✗ WRONG CODE';
+    document.getElementById('pass-input').value='';
+  }
+}
+document.getElementById('pass-input').addEventListener('keydown',function(e){if(e.key==='Enter')checkPass();});
+
+/* ═══════════════════════════════════════
+   AUDIO (minimal calls for performance)
+═══════════════════════════════════════ */
+function initAudio(){
+  if(audioCtx) return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  startAmbient();
+}
+function tone(f,d,type,vol){
+  if(!audioCtx) return;
+  var o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.connect(g);g.connect(audioCtx.destination);
+  o.type=type||'sine';o.frequency.value=f;
+  g.gain.setValueAtTime(vol||.12,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+d);
+  o.start();o.stop(audioCtx.currentTime+d);
+}
+function sndShoot(){tone(140,.04,'sawtooth',.45);tone(60,.09,'sawtooth',.22);}
+function sndCollect(){tone(880,.07,'sine',.18);setTimeout(function(){tone(1320,.1,'sine',.14);},60);}
+function sndHeart(){tone(52,.06,'sine',.32);setTimeout(function(){tone(52,.06,'sine',.22);},105);}
+function sndStep(v){
+  if(!audioCtx)return;
+  var buf=audioCtx.createBuffer(1,Math.floor(audioCtx.sampleRate*.035),audioCtx.sampleRate);
+  var d=buf.getChannelData(0);
+  for(var i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.8);
+  var s=audioCtx.createBufferSource(),g=audioCtx.createGain();
+  s.buffer=buf;s.connect(g);g.connect(audioCtx.destination);
+  g.gain.value=v||.07;s.start();
+}
+function startAmbient(){
+  if(!audioCtx)return;
+  var o=audioCtx.createOscillator(),f=audioCtx.createBiquadFilter(),g=audioCtx.createGain();
+  f.type='lowpass';f.frequency.value=180;
+  o.connect(f);f.connect(g);g.connect(audioCtx.destination);
+  o.type='sawtooth';o.frequency.value=34;g.gain.value=.022;o.start();
+}
+
+/* ═══════════════════════════════════════
+   START GAME
+═══════════════════════════════════════ */
+function startGame(){
+  document.getElementById('screen-password').classList.add('hidden');
+  document.getElementById('hud').style.display='block';
+
+  /* ── THREE.JS SETUP (performance-first) ── */
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x080204);
+  scene.fog=new THREE.Fog(0x080204, 8, 28); // linear fog = cheaper than exp
+
+  camera=new THREE.PerspectiveCamera(80,innerWidth/innerHeight,.1,60);
+  camera.rotation.order='YXZ';
+  camera.position.set(0,1.7,0);
+
+  renderer=new THREE.WebGLRenderer({
+    antialias: !IS_MOBILE,          // no antialias on mobile = big speedup
+    powerPreference:'high-performance'
+  });
+  renderer.setSize(innerWidth,innerHeight);
+  // PERF: cap pixel ratio at 1.5 (mobile GPU killer if higher)
+  renderer.setPixelRatio(IS_MOBILE ? Math.min(devicePixelRatio,1.5) : Math.min(devicePixelRatio,2));
+  // PERF: shadows OFF on mobile = 2-3x faster
+  renderer.shadowMap.enabled = !IS_MOBILE;
+  if(!IS_MOBILE) renderer.shadowMap.type=THREE.BasicShadowMap; // BasicShadowMap = fastest
+  renderer.toneMapping=THREE.ReinhardToneMapping;
+  renderer.toneMappingExposure=2.2;
+  document.body.appendChild(renderer.domElement);
+
+  window.addEventListener('resize',function(){
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth,innerHeight);
+  });
+
+  buildLevel();
+  buildLocker();
+  buildExitDoor();
+  spawnKeys();
+  spawnKiller();
+  addLights();
+  initControls();
+
+  if(IS_MOBILE){
+    document.getElementById('mobile-ui').style.display='block';
+    initJoystick();
+    initTouchLook();
+    initMobileButtons();
+  } else {
+    document.getElementById('click-prompt').style.display='flex';
+  }
+
+  gameStarted=true;
+  lastTS=performance.now();
+  requestAnimationFrame(loop);
+}
+
+/* ═══════════════════════════════════════
+   LEVEL  (Lambert materials = much faster)
+═══════════════════════════════════════ */
+function buildLevel(){
+  // PERF: MeshLambertMaterial is ~3x faster than MeshStandardMaterial
+  var wM =new THREE.MeshLambertMaterial({color:0x1e1510});
+  var wM2=new THREE.MeshLambertMaterial({color:0x151010});
+  var flM=new THREE.MeshLambertMaterial({color:0x0e0b0b});
+  var clM=new THREE.MeshLambertMaterial({color:0x0c0909});
+  var prM=new THREE.MeshLambertMaterial({color:0x1a1008});
+
+  function box(w,h,d,mat,x,y,z,ry){
+    var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+    m.position.set(x,y,z);if(ry)m.rotation.y=ry;
+    if(!IS_MOBILE){m.castShadow=true;m.receiveShadow=true;}
+    scene.add(m);return m;
+  }
+
+  var fl=new THREE.Mesh(new THREE.PlaneGeometry(34,34),flM);
+  fl.rotation.x=-Math.PI/2;if(!IS_MOBILE)fl.receiveShadow=true;scene.add(fl);
+  var cl=new THREE.Mesh(new THREE.PlaneGeometry(34,34),clM);
+  cl.rotation.x=Math.PI/2;cl.position.y=4.2;scene.add(cl);
+
+  // Outer walls
+  box(30,4.2,.3,wM, 0,2.1,-14.85);
+  box(30,4.2,.3,wM, 0,2.1, 14.85);
+  box(.3,4.2,30,wM,-14.85,2.1,0);
+  box(.3,4.2,30,wM, 14.85,2.1,0);
+
+  // Interior walls
+  box(10,4.2,.3,wM2,-7, 2.1,-2);
+  box(10,4.2,.3,wM2, 7, 2.1,-2);
+  box(.3,4.2,10,wM2,-2, 2.1, 8);
+  box(.3,4.2, 8,wM2, 4, 2.1,-9);
+  box( 7,4.2,.3,wM2,-10,2.1, 6);
+  box(.3,4.2, 6,wM2, 10,2.1,-7);
+
+  // Props (fewer on mobile for performance)
+  box(3,.25,1.2,prM,-8,.12,-8);
+  box(.14,2.2,1.2,prM,-9.5,1.1,-8);
+  box(.14,2.2,1.2,prM,-6.5,1.1,-8);
+  box(2.4,.1,1.3,prM,10,.85,5);
+  box(.1,.85,.1,prM,9.1,.42,4.5);box(.1,.85,.1,prM,10.9,.42,4.5);
+  box(.1,.85,.1,prM,9.1,.42,5.5);box(.1,.85,.1,prM,10.9,.42,5.5);
+  box(1.3,1.3,1.3,prM,7,.65,10);
+  box(1.0,1.0,1.0,prM,8.1,1.45,10);
+  box(1.8,.9,1.5,prM,-11,.45,2);
+  box(.7,.05,.7,prM,5,.7,-12);
+  box(.7,1.0,.08,prM,5,1.2,-12.35);
+  if(!IS_MOBILE){ // extra props desktop only
+    var bar=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.9,8),prM);
+    bar.position.set(-5,.45,12);scene.add(bar);
+    [[-3,4],[2,-11],[8,-3],[-9,9]].forEach(function(p){
+      box(.35+Math.random()*.25,.15+Math.random()*.12,.35+Math.random()*.25,
+          prM,p[0]+Math.random()-.5,.08,p[1]+Math.random()-.5);
+    });
+  }
+}
+
+function buildLocker(){
+  var mat=new THREE.MeshLambertMaterial({color:0x181825});
+  lockerMesh=new THREE.Mesh(new THREE.BoxGeometry(1.5,3.2,.9),mat);
+  lockerMesh.position.set(-13,1.6,-13);
+  if(!IS_MOBILE)lockerMesh.castShadow=true;
+  scene.add(lockerMesh);
+  var hdl=new THREE.Mesh(new THREE.BoxGeometry(.08,.4,.1),
+    new THREE.MeshLambertMaterial({color:0x443322}));
+  hdl.position.set(-13.28,1.6,-12.5);scene.add(hdl);
+  var lkL=new THREE.PointLight(0x8888ff,.8,4);
+  lkL.position.set(-13,3,-12.4);scene.add(lkL);
+}
+
+function buildExitDoor(){
+  var mat=new THREE.MeshLambertMaterial({color:0x002200,emissive:new THREE.Color(0x00aa33)});
+  exitDoorMesh=new THREE.Mesh(new THREE.BoxGeometry(2.8,4,.3),mat);
+  exitDoorMesh.position.set(0,2,-14.85);scene.add(exitDoorMesh);
+  var eL=new THREE.PointLight(0x00ff55,2.5,10);
+  eL.position.set(0,2.5,-13);scene.add(eL);
+  var sign=new THREE.Mesh(new THREE.BoxGeometry(2.2,.5,.15),
+    new THREE.MeshLambertMaterial({color:0x00ff44,emissive:new THREE.Color(0x00ff44)}));
+  sign.position.set(0,4.55,-14.85);scene.add(sign);
+}
+
+/* ═══════════════════════════════════════
+   KEYS
+═══════════════════════════════════════ */
+var KEY_POS=[{x:11,z:-11},{x:-11,z:11},{x:11,z:11},{x:-6,z:-12},{x:12,z:3}];
+function spawnKeys(){
+  var geo=new THREE.TorusGeometry(.22,.07,7,18); // simpler geometry = faster
+  var mat=new THREE.MeshLambertMaterial({color:0xffcc00,emissive:new THREE.Color(0xff8800)});
+  KEY_POS.forEach(function(pos,i){
+    var m=new THREE.Mesh(geo,mat);m.position.set(pos.x,.95,pos.z);
+    if(!IS_MOBILE)m.castShadow=true;scene.add(m);keyMeshes.push(m);
+    var gl=new THREE.PointLight(0xffaa00,IS_MOBILE?.9:1.3,IS_MOBILE?3:5);
+    gl.position.set(pos.x,.95,pos.z);scene.add(gl);keyLights.push(gl);
+  });
+}
+
+/* ═══════════════════════════════════════
+   KILLER
+═══════════════════════════════════════ */
+function spawnKiller(){
+  killerGroup=new THREE.Group();
+  var dark=new THREE.MeshLambertMaterial({color:0x060606});
+  var eyeM=new THREE.MeshBasicMaterial({color:0xff0000});
+  function part(w,h,d,m,x,y,z){var mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);mesh.position.set(x,y,z);killerGroup.add(mesh);return mesh;}
+  part(.72,1.15,.42,dark, 0,   .78,0);
+  part(.52,.52,.50,dark,  0,  1.62,0);
+  part(.24,.95,.24,dark,-.24,.18,0);
+  part(.24,.95,.24,dark, .24,.18,0);
+  part(.22,.90,.22,dark,-.48,.72,0);
+  part(.22,.90,.22,dark, .48,.72,0);
+  var eL2=new THREE.Mesh(new THREE.SphereGeometry(.055,6,6),eyeM);
+  var eR2=new THREE.Mesh(new THREE.SphereGeometry(.055,6,6),eyeM);
+  eL2.position.set(-.13,1.64,.26);eR2.position.set(.13,1.64,.26);
+  killerGroup.add(eL2,eR2);
+  var glow=new THREE.PointLight(0xff0000,IS_MOBILE?.9:1.4,IS_MOBILE?4:6);
+  glow.position.set(0,1.6,.2);killerGroup.add(glow);
+  killerGroup.position.set(13,0,13);scene.add(killerGroup);
+  patrolPts=[
+    new THREE.Vector3(13,0,13),new THREE.Vector3(-13,0,13),
+    new THREE.Vector3(-13,0,-13),new THREE.Vector3(13,0,-13),
+    new THREE.Vector3(0,0,0),new THREE.Vector3(-5,0,5),
+  ];
+}
+
+/* ═══════════════════════════════════════
+   LIGHTS
+   PERF: fewer lights = biggest speedup
+═══════════════════════════════════════ */
+function addLights(){
+  // Strong ambient — covers everything even without many point lights
+  scene.add(new THREE.AmbientLight(0x604030, IS_MOBILE ? 5.5 : 4.2));
+
+  if(!IS_MOBILE){
+    var fill=new THREE.DirectionalLight(0x6a3820,1.0);
+    fill.position.set(2,8,2);scene.add(fill);
+  }
+
+  // Player flashlight
+  flashlight=new THREE.SpotLight(0xfff0d8,IS_MOBILE?7:9,IS_MOBILE?22:28,Math.PI/8,.28,1.3);
+  if(!IS_MOBILE){flashlight.castShadow=true;flashlight.shadow.mapSize.set(512,512);}
+  scene.add(flashlight);scene.add(flashlight.target);
+
+  // PERF: only 4 room lights on mobile, 7 on desktop
+  var roomLights=[
+    {x:0, z:0,  c:0x3a1a08,i:IS_MOBILE?2.0:1.4,r:IS_MOBILE?18:14},
+    {x:10,z:10, c:0x2a1006,i:IS_MOBILE?1.5:1.1,r:IS_MOBILE?16:12},
+    {x:-10,z:-10,c:0x280806,i:IS_MOBILE?1.5:1.0,r:IS_MOBILE?16:12},
+    {x:10,z:-10,c:0x260806,i:IS_MOBILE?1.3:0.9,r:IS_MOBILE?14:11},
+  ];
+  if(!IS_MOBILE){
+    roomLights.push({x:-10,z:10,c:0x2e1004,i:.9,r:12});
+    roomLights.push({x:0, z:13,c:0x1e1004,i:.8,r:10});
+    roomLights.push({x:5, z:-5,c:0x221006,i:.8,r:10});
+  }
+  roomLights.forEach(function(l){
+    var pl=new THREE.PointLight(l.c,l.i,l.r);pl.position.set(l.x,2.8,l.z);scene.add(pl);
+  });
+
+  // Accent reds
+  [{x:5,z:-12,c:0xff1000,i:.55,r:6},{x:-5,z:10,c:0xff0800,i:.45,r:6}].forEach(function(l){
+    var pl=new THREE.PointLight(l.c,l.i,l.r);pl.position.set(l.x,2.5,l.z);scene.add(pl);
+  });
+}
+
+/* ═══════════════════════════════════════
+   DESKTOP CONTROLS
+═══════════════════════════════════════ */
+function initControls(){
+  window.addEventListener('keydown',function(e){
+    pressedKeys[e.code]=true;
+    if(e.code==='KeyE')interact();
+    if(e.code==='KeyF')tryHide();
+    if(e.code==='Space'){e.preventDefault();shoot();}
+  });
+  window.addEventListener('keyup',function(e){pressedKeys[e.code]=false;});
+
+  document.addEventListener('mousemove',function(e){
+    if(!pointerLocked)return;
+    yaw  -=e.movementX*MOUSE_SENS;
+    pitch-=e.movementY*MOUSE_SENS*.85;
+    pitch=Math.max(-Math.PI/2.5,Math.min(Math.PI/2.5,pitch));
+  });
+
+  document.addEventListener('click',function(){
+    if(!gameStarted||isDead||hasWon||hiding)return;
+    if(!pointerLocked&&!IS_MOBILE){lockPointer();return;}
+    if(pointerLocked)shoot();
+  });
+
+  document.addEventListener('pointerlockchange',function(){
+    pointerLocked=document.pointerLockElement===renderer.domElement;
+    if(!IS_MOBILE)
+      document.getElementById('click-prompt').style.display=
+        (pointerLocked||isDead||hasWon||hiding)?'none':'flex';
+  });
+}
+
+function lockPointer(){
+  if(renderer&&renderer.domElement){initAudio();renderer.domElement.requestPointerLock();}
+}
+
+/* ═══════════════════════════════════════
+   MOBILE: JOYSTICK
+═══════════════════════════════════════ */
+function initJoystick(){
+  var nip=nipplejs.create({
+    zone:document.getElementById('joystick-zone'),
+    mode:'static',position:{left:'80px',bottom:'80px'},
+    color:'rgba(200,30,30,.5)',size:130
+  });
+  nip.on('move',function(e,d){joyVec.x=d.vector.x;joyVec.z=d.vector.y;});
+  nip.on('end', function(){joyVec.x=0;joyVec.z=0;});
+}
+
+/* ═══════════════════════════════════════
+   MOBILE: TOUCH LOOK (right half)
+═══════════════════════════════════════ */
+var ltx=null,lty=null;
+function initTouchLook(){
+  document.addEventListener('touchmove',function(e){
+    if(!gameStarted||hiding)return;
+    for(var i=0;i<e.touches.length;i++){
+      var t=e.touches[i];
+      if(t.clientX>innerWidth*.42){
+        if(ltx!==null){
+          yaw  -=(t.clientX-ltx)*.005;
+          pitch-=(t.clientY-lty)*.005;
+          pitch=Math.max(-Math.PI/2.5,Math.min(Math.PI/2.5,pitch));
+        }
+        ltx=t.clientX;lty=t.clientY;break;
+      }
+    }
+  },{passive:true});
+  document.addEventListener('touchend',function(){ltx=null;lty=null;},{passive:true});
+}
+
+/* ═══════════════════════════════════════
+   MOBILE: ALL BUTTONS — proper touch events
+═══════════════════════════════════════ */
+function initMobileButtons(){
+  function mbtn(id,fn){
+    var el=document.getElementById(id);
+    if(!el)return;
+    el.addEventListener('touchstart',function(e){e.preventDefault();fn();},{passive:false});
+  }
+
+  // Shoot
+  mbtn('btn-shoot', function(){ shoot(); });
+
+  // COLLECT KEY — also auto-collects nearby keys
+  mbtn('btn-collect', function(){ mobileCollect(); });
+
+  // Hide in locker
+  mbtn('btn-hide-mob', function(){ tryHide(); });
+
+  // Use exit door
+  mbtn('btn-exit-door', function(){ tryExit(); });
+
+  // Come out of hide (on hide screen)
+  document.getElementById('btn-exit-hide').addEventListener('touchstart',function(e){
+    e.preventDefault(); exitHide();
+  },{passive:false});
+
+  // Sprint toggle
+  var sprintEl=document.getElementById('btn-sprint');
+  sprintEl.addEventListener('touchstart',function(e){
+    e.preventDefault();
+    sprintOn=!sprintOn;
+    sprintEl.classList.toggle('active',sprintOn);
+  },{passive:false});
+}
+
+/* Mobile-specific collect (searches nearby keys) */
+function mobileCollect(){
+  if(!gameStarted||isDead)return;
+  var collected=false;
+  keyMeshes.forEach(function(k,i){
+    if(!k)return;
+    if(distXZ(camera.position,k.position)<3.0){ // slightly larger range for mobile
+      scene.remove(k);scene.remove(keyLights[i]);
+      keyMeshes[i]=null;collectedKeys++;
+      document.getElementById('keys-val').textContent=collectedKeys;
+      sndCollect();
+      showToast(collectedKeys>=TOTAL_KEYS?'🔑 All keys! Find EXIT!':'🔑 Key '+collectedKeys+'/'+TOTAL_KEYS,2200);
+      collected=true;
+    }
+  });
+  if(!collected) showToast('No key nearby! Get closer.',1500);
+}
+
+/* Mobile exit door */
+function tryExit(){
+  if(!gameStarted||isDead)return;
+  if(exitDoorMesh&&distXZ(camera.position,exitDoorMesh.position)<4.5){
+    if(collectedKeys>=TOTAL_KEYS) winGame();
+    else showToast('Need all 5 keys! ('+collectedKeys+'/'+TOTAL_KEYS+')',2000);
+  } else {
+    showToast('Get closer to the EXIT door!',1500);
+  }
+}
+
+/* ═══════════════════════════════════════
+   PLAYER UPDATE
+═══════════════════════════════════════ */
+function updatePlayer(dt){
+  if(hiding||isDead)return;
+
+  var sprint=IS_MOBILE ? sprintOn&&stamina>0 :
+    (pressedKeys['ShiftLeft']||pressedKeys['ShiftRight'])&&stamina>0;
+  var spd=sprint?7.0:4.2;
+
+  var cosY=Math.cos(yaw),sinY=Math.sin(yaw);
+  var fwdX=-sinY,fwdZ=-cosY,rgtX=cosY,rgtZ=-sinY;
+  var mx=0,mz=0;
+
+  if(!IS_MOBILE){
+    if(pressedKeys['KeyW']||pressedKeys['ArrowUp'])   {mx+=fwdX;mz+=fwdZ;}
+    if(pressedKeys['KeyS']||pressedKeys['ArrowDown']) {mx-=fwdX;mz-=fwdZ;}
+    if(pressedKeys['KeyA']||pressedKeys['ArrowLeft']) {mx-=rgtX;mz-=rgtZ;}
+    if(pressedKeys['KeyD']||pressedKeys['ArrowRight']){mx+=rgtX;mz+=rgtZ;}
+  } else {
+    mx=fwdX*joyVec.z+rgtX*joyVec.x;
+    mz=fwdZ*joyVec.z+rgtZ*joyVec.x;
+  }
+
+  var len=Math.sqrt(mx*mx+mz*mz);
+  if(len>.001){
+    mx/=len;mz/=len;
+    camera.position.x=Math.max(-BOUND,Math.min(BOUND,camera.position.x+mx*spd*dt));
+    camera.position.z=Math.max(-BOUND,Math.min(BOUND,camera.position.z+mz*spd*dt));
+    if(sprint)stamina=Math.max(0,stamina-32*dt);
+    footCD-=dt;
+    if(footCD<=0){sndStep(sprint?.11:.07);footCD=sprint?.25:.42;}
+
+    // AUTO-COLLECT keys when walking over them (mobile + desktop)
+    if(IS_MOBILE){
+      keyMeshes.forEach(function(k,i){
+        if(!k)return;
+        if(distXZ(camera.position,k.position)<2.2){
+          scene.remove(k);scene.remove(keyLights[i]);
+          keyMeshes[i]=null;collectedKeys++;
+          document.getElementById('keys-val').textContent=collectedKeys;
+          sndCollect();
+          showToast(collectedKeys>=TOTAL_KEYS?'🔑 All keys! Find EXIT!':'🔑 Key '+collectedKeys+'/'+TOTAL_KEYS,2200);
+        }
+      });
+    }
+  } else {
+    stamina=Math.min(100,stamina+22*dt);footCD=0;
+    // Turn off sprint when not moving
+    if(IS_MOBILE&&sprintOn&&len<.001){
+      /* keep it on — player may just be turning */
+    }
+  }
+
+  camera.position.y=1.7;
+  camera.rotation.y=yaw;
+  camera.rotation.x=pitch;
+  document.getElementById('stam-fill').style.width=stamina.toFixed(1)+'%';
+}
+
+/* ═══════════════════════════════════════
+   SHOOT
+═══════════════════════════════════════ */
+function shoot(){
+  if(!gameStarted||isDead||hiding)return;
+  if(bullets<=0){showToast('⚠ No ammo!',1500);return;}
+  bullets--;document.getElementById('bullets-val').textContent=bullets;
+  sndShoot();
+  if(flashlight){var sv=flashlight.intensity;flashlight.intensity=20;setTimeout(function(){if(flashlight)flashlight.intensity=sv;},55);}
+  if(killerGroup&&!killerFrozen){
+    var dir=new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(pitch,yaw,0,'YXZ')).normalize();
+    var ray=new THREE.Raycaster(camera.position.clone(),dir,0,30);
+    if(ray.intersectObjects(killerGroup.children,false).length>0)stunKiller();
+  }
+}
+function stunKiller(){
+  killerFrozen=true;killerSpd=0;clearTimeout(freezeTimer);
+  showToast('💥 Killer stunned! (10s)',3000);
+  freezeTimer=setTimeout(function(){killerFrozen=false;killerSpd=killerBaseSpd;},10000);
+}
+
+/* ═══════════════════════════════════════
+   INTERACT / HIDE (desktop)
+═══════════════════════════════════════ */
+function interact(){
+  if(!gameStarted||isDead)return;
+  keyMeshes.forEach(function(k,i){
+    if(!k)return;
+    if(distXZ(camera.position,k.position)<2.6){
+      scene.remove(k);scene.remove(keyLights[i]);
+      keyMeshes[i]=null;collectedKeys++;
+      document.getElementById('keys-val').textContent=collectedKeys;
+      sndCollect();
+      showToast(collectedKeys>=TOTAL_KEYS?'🔑 All keys! Find EXIT!':'🔑 Key '+collectedKeys+'/'+TOTAL_KEYS,2200);
+    }
+  });
+  if(exitDoorMesh&&distXZ(camera.position,exitDoorMesh.position)<3.5){
+    if(collectedKeys>=TOTAL_KEYS)winGame();
+    else showToast('Need all 5 keys! ('+collectedKeys+'/'+TOTAL_KEYS+')',2000);
+  }
+}
+
+function tryHide(){
+  if(!gameStarted||isDead||hiding)return;
+  if(lockerMesh&&distXZ(camera.position,lockerMesh.position)<3.2){
+    hiding=true;
+    document.getElementById('hide-screen').style.display='flex';
+    if(pointerLocked)document.exitPointerLock();
+  } else showToast('Get closer to the locker!',1500);
+}
+
+function exitHide(){
+  hiding=false;
+  document.getElementById('hide-screen').style.display='none';
+  if(!IS_MOBILE)document.getElementById('click-prompt').style.display='flex';
+}
+
+/* ═══════════════════════════════════════
+   KILLER AI
+═══════════════════════════════════════ */
+function updateKiller(dt){
+  if(!killerGroup||killerFrozen||isDead)return;
+  var kp=killerGroup.position,pp=camera.position;
+  var d=distXZ(kp,pp);
+  var tx,tz;
+  if(d<13&&!hiding){
+    tx=pp.x;tz=pp.z;
+    killerSpd=Math.min(6.0,killerSpd+dt*1.4);
+  } else {
+    var pt=patrolPts[patrolIdx];tx=pt.x;tz=pt.z;
+    killerSpd=killerBaseSpd;
+  }
+  var dx=tx-kp.x,dz=tz-kp.z,dl=Math.sqrt(dx*dx+dz*dz);
+  if(dl>.05){
+    dx/=dl;dz/=dl;
+    kp.x+=dx*killerSpd*dt;kp.z+=dz*killerSpd*dt;
+    killerGroup.rotation.y=Math.atan2(dx,dz);
+    // Leg animation (only every other frame for perf)
+    if(frameCount%2===0){
+      var sw=Math.sin(performance.now()*.012)*.42;
+      if(killerGroup.children[2])killerGroup.children[2].rotation.x= sw;
+      if(killerGroup.children[3])killerGroup.children[3].rotation.x=-sw;
+    }
+  }
+  if(distXZ(kp,patrolPts[patrolIdx])<1.0)patrolIdx=(patrolIdx+1)%patrolPts.length;
+  if(d<1.3&&!hiding)triggerDeath('The killer caught you...');
+}
+
+/* ═══════════════════════════════════════
+   HEARTBEAT
+═══════════════════════════════════════ */
+function updateHeartbeat(){
+  if(!killerGroup||isDead||hiding)return;
+  var d=distXZ(killerGroup.position,camera.position);
+  var hb=document.getElementById('heartbeat-icon');
+  var vig=document.getElementById('vignette');
+  if(d<11){
+    var t=Math.max(0,1-d/11);
+    hb.style.display='block';
+    vig.style.boxShadow='inset 0 0 110px rgba(200,0,0,'+(t*.48).toFixed(2)+')';
+    hb.style.animationDuration=Math.max(.25,.82-t*.5).toFixed(2)+'s';
+    var now=performance.now(),interval=Math.max(310,700-t*370);
+    if(now-lastBeat>interval){sndHeart();lastBeat=now;}
+  } else {
+    hb.style.display='none';
+    vig.style.boxShadow='none';
+  }
+}
+
+/* ═══════════════════════════════════════
+   PROMPTS (desktop)
+═══════════════════════════════════════ */
+function checkPrompts(){
+  if(isDead||hiding||IS_MOBILE)return; // mobile uses buttons instead
+  var pos=camera.position,el=document.getElementById('prompt-bar');
+  var nearKey=keyMeshes.some(function(k){return k&&distXZ(pos,k.position)<2.6;});
+  var nearLocker=lockerMesh&&distXZ(pos,lockerMesh.position)<3.2;
+  var nearExit=exitDoorMesh&&distXZ(pos,exitDoorMesh.position)<3.5;
+  if(nearExit&&collectedKeys>=TOTAL_KEYS){el.textContent='[ E ]  ESCAPE →';el.style.color='#00ff88';el.style.display='block';}
+  else if(nearExit){el.textContent='Need '+(TOTAL_KEYS-collectedKeys)+' more key(s)';el.style.color='#ffaa00';el.style.display='block';}
+  else if(nearKey){el.textContent='[ E ]  Collect Key';el.style.color='#ffcc00';el.style.display='block';}
+  else if(nearLocker){el.textContent='[ F ]  Hide in Locker';el.style.color='#8888ff';el.style.display='block';}
+  else el.style.display='none';
+}
+
+/* Mobile prompts — show nearby indicator above buttons */
+function checkMobileProximity(){
+  if(!IS_MOBILE||isDead||hiding)return;
+  var pos=camera.position;
+  var el=document.getElementById('prompt-bar');
+  var nearKey=keyMeshes.some(function(k){return k&&distXZ(pos,k.position)<3.0;});
+  var nearLocker=lockerMesh&&distXZ(pos,lockerMesh.position)<3.2;
+  var nearExit=exitDoorMesh&&distXZ(pos,exitDoorMesh.position)<4.5;
+
+  // Highlight relevant button
+  document.getElementById('btn-collect').style.borderColor=nearKey?'#ffcc00':'rgba(200,30,30,.6)';
+  document.getElementById('btn-hide-mob').style.borderColor=nearLocker?'#8888ff':'rgba(200,30,30,.6)';
+  document.getElementById('btn-exit-door').style.borderColor=nearExit?'#00ff88':'rgba(200,30,30,.6)';
+
+  if(nearKey){el.textContent='Tap 🔑 to collect key';el.style.color='#ffcc00';el.style.display='block';}
+  else if(nearExit&&collectedKeys>=TOTAL_KEYS){el.textContent='Tap 🚪 to ESCAPE!';el.style.color='#00ff88';el.style.display='block';}
+  else if(nearExit){el.textContent='Need all 5 keys first!';el.style.color='#ffaa00';el.style.display='block';}
+  else if(nearLocker){el.textContent='Tap 👁 to hide';el.style.color='#8888ff';el.style.display='block';}
+  else el.style.display='none';
+}
+
+/* ═══════════════════════════════════════
+   MINIMAP (drawn every 3 frames = faster)
+═══════════════════════════════════════ */
+function drawMinimap(){
+  if(frameCount%3!==0)return; // skip 2 out of 3 frames
+  var cv=document.getElementById('minimap-canvas');
+  var c2=cv.getContext('2d');
+  var W=cv.width,sc=W/(BOUND*2+2);
+  c2.clearRect(0,0,W,W);
+  c2.fillStyle='rgba(0,0,0,.8)';c2.fillRect(0,0,W,W);
+  function wx(x){return(x+BOUND)*sc;}function wz(z){return(z+BOUND)*sc;}
+  keyMeshes.forEach(function(k){
+    if(!k)return;
+    c2.fillStyle='#ffcc00';c2.beginPath();
+    c2.arc(wx(k.position.x),wz(k.position.z),3.5,0,Math.PI*2);c2.fill();
+  });
+  c2.fillStyle='#5555ff';c2.fillRect(wx(-13.75)-3,wz(-13.75)-3,7,7);
+  c2.fillStyle='#00ff55';c2.fillRect(wx(-1.4)-2,wz(-14.85)-2,8,4);
+  if(killerGroup){c2.fillStyle='#ff0000';c2.beginPath();c2.arc(wx(killerGroup.position.x),wz(killerGroup.position.z),5,0,Math.PI*2);c2.fill();}
+  var px=wx(camera.position.x),pz=wz(camera.position.z);
+  c2.fillStyle='#fff';c2.beginPath();c2.arc(px,pz,4,0,Math.PI*2);c2.fill();
+  c2.strokeStyle='#fff';c2.lineWidth=1.5;c2.beginPath();
+  c2.moveTo(px,pz);c2.lineTo(px-Math.sin(yaw)*8,pz-Math.cos(yaw)*8);c2.stroke();
+  // clip circle
+  c2.globalCompositeOperation='destination-in';
+  c2.beginPath();c2.arc(W/2,W/2,W/2,0,Math.PI*2);c2.fill();
+  c2.globalCompositeOperation='source-over';
+}
+
+/* ═══════════════════════════════════════
+   TOAST
+═══════════════════════════════════════ */
+var toastTimer;
+function showToast(msg,dur){
+  var el=document.getElementById('toast');
+  el.textContent=msg;el.style.opacity='1';el.style.display='block';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){el.style.opacity='0';setTimeout(function(){el.style.display='none';},400);},dur||2000);
+}
+
+/* ═══════════════════════════════════════
+   DEATH / WIN
+═══════════════════════════════════════ */
+function triggerDeath(msg){
+  if(isDead||hasWon)return;isDead=true;
+  if(pointerLocked)document.exitPointerLock();
+  doJumpscare();
+  setTimeout(function(){
+    document.getElementById('death-msg').textContent=msg||'You died.';
+    document.getElementById('screen-dead').classList.remove('hidden');
+  },760);
+}
+function winGame(){
+  if(hasWon)return;hasWon=true;
+  if(pointerLocked)document.exitPointerLock();
+  document.getElementById('screen-win').classList.remove('hidden');
+}
+function doJumpscare(){
+  var el=document.getElementById('jumpscare');el.style.display='block';
+  var n=0,iv=setInterval(function(){
+    el.style.background=(n%2===0)?'#cc0000':'#000';
+    if(++n>9){clearInterval(iv);el.style.display='none';}
+  },70);
+}
+
+/* ═══════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════ */
+function distXZ(a,b){var dx=a.x-b.x,dz=a.z-b.z;return Math.sqrt(dx*dx+dz*dz);}
+
+function updateFlashlight(){
+  if(!flashlight)return;
+  flashlight.position.copy(camera.position);
+  var sp=Math.sin(pitch),cp=Math.cos(pitch),sy=Math.sin(yaw),cy=Math.cos(yaw);
+  flashlight.target.position.set(
+    camera.position.x+(-sy*cp)*16,
+    camera.position.y+sp*16,
+    camera.position.z+(-cy*cp)*16
+  );
+  flashlight.target.updateMatrixWorld();
+}
+
+function animateKeys(t){
+  // PERF: only animate visible keys
+  keyMeshes.forEach(function(k,i){
+    if(!k)return;
+    k.rotation.y=t*2.0+i*1.26;
+    k.position.y=.95+Math.sin(t*2.2+i*1.5)*.13;
+    if(keyLights[i])keyLights[i].position.y=k.position.y;
+  });
+}
+
+/* ═══════════════════════════════════════
+   MAIN LOOP
+═══════════════════════════════════════ */
+function loop(ts){
+  requestAnimationFrame(loop);
+  if(!gameStarted)return;
+
+  var dt=Math.min((ts-lastTS)/1000,.07); // cap dt to prevent spiral of death
+  lastTS=ts;
+  frameCount++;
+
+  if(!isDead&&!hasWon){
+    updatePlayer(dt);
+    updateKiller(dt);
+    // PERF: animate keys only every other frame
+    if(frameCount%2===0)animateKeys(ts/1000);
+    // PERF: prompts every 3 frames
+    if(frameCount%3===0){
+      if(IS_MOBILE)checkMobileProximity();
+      else checkPrompts();
+    }
+    updateHeartbeat();
+    drawMinimap();
+  }
+
+  updateFlashlight();
+  renderer.render(scene,camera);
+}
+</script>
+</body>
+</html>
